@@ -18,9 +18,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build Docker image
+    - name: Build Docker image (test build)
       run: |
-        docker build -t ${{ env.DOCKER_REGISTRY_LOCATION }}:${{ env.BUILD_RELEASED_VERSION_TAG }} .
+        docker build -t intelisort-docker-image:latest .
 
     - name: Push Docker image to Registry
       run: |
