@@ -7,7 +7,13 @@ import os
 load_dotenv()
 
 is_production = os.getenv("ENVIRONMENT") != "development"
-app = FastAPI(docs_url=None, redoc_url=None) if is_production else FastAPI()
+app = FastAPI(
+    title="Intelisort API",
+    description="City Issues Priority Sorting, Grouping and Curse Detection API",
+    summary="API Specs for Intelisort Service",
+    docs_url=None,
+    redoc_url=None    
+) if is_production else FastAPI()
 
 # Define the allowed hosts from settings.ALLOW_HOSTS and settings.ALLOW_CORS
 
