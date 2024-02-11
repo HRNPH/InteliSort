@@ -20,7 +20,7 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t ${DOCKER_REGISTRY_LOCATION}:${BUILD_RELEASED_VERSION_TAG} .
+        docker build -t ${{ env.DOCKER_REGISTRY_LOCATION }}:${{ env.BUILD_RELEASED_VERSION_TAG }} .
 
     - name: Push Docker image to Registry
       run: |
