@@ -1,0 +1,31 @@
+name: Docker Build Check
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  DOCKER_REGISTRY_LOCATION: ${{ secrets.DOCKER_REGISTRY_LOCATION }}
+  BUILD_RELEASED_VERSION_TAG: ${{ secrets.BUILD_RELEASED_VERSION_TAG }}
+
+jobs:
+  setup-build-deploy:
+    name: Setup, Ensure Build Passed, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        docker build -t ${DOCKER_REGISTRY_LOCATION}:${BUILD_RELEASED_VERSION_TAG} .
+
+    - name: Push Docker image to Registry
+      run: |
+        echo "This is a placeholder for pushing the Docker image to the registry."
+
+    - name: Deploy to Container Orchestration Service
+      run: |
+        echo "This is a placeholder for deploying the Docker image to the container orchestration service."
