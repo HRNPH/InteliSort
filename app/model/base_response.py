@@ -3,11 +3,11 @@ from typing import List, Any
 
 class BaseResponseModel(BaseModel):
     success: bool
-    data: Any = None
+    content: Any = None
     error: str = None
     
-class BaseHelloExampleResponseModel(BaseResponseModel):
-    data: str
-    
+class BaseStatusResponseModel(BaseResponseModel):
+    status: str
+
 class BaseContentExampleResponseModel(BaseResponseModel):
-    data: List[str]
+    content: List[str]
