@@ -1,14 +1,14 @@
 version: '3'
 services:
-  postgres:
-    image: postgres
-    container_name: intelisort-postgres 
+  redis:
+    image: redis
+    container_name: siph-asr-redis
     ports:
-      - '6705:5432'
+      - '6379:6379'
     restart: always
     env_file:
       - ./.env
     volumes:
-      - postgres-db-intelisort:/var/lib/postgresql/data
+      - redis-db-siph-asr:/data
 volumes:
-  postgres-db-intelisort:
+  redis-db-siph-asr:
