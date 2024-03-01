@@ -1,5 +1,5 @@
 # InteliSort
-Bangkok City Incident and Issue AI Powered Prioritization and Sorting system
+Bangkok City Incident and Issue AI Powered Prioritization and Sorting system Implemented by CEDT student
 ## Setup
 ### Pre-requisites
 assumes you have the following installed:
