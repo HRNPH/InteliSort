@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request, status, File, UploadFile
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from loguru import logger
-from app.db.prisma import prisma
+from app.db.redis import redis_client
 from app.function import example
 from app.function.validator.data_import import validate_csv
 from app.model import base_response
@@ -18,11 +18,9 @@ logger.add(sys.stderr, format="{time:MMMM D, YYYY > HH:mm:ss!UTC} | {level} | {m
 async def lifespan(router: APIRouter):
     # db connection
     logger.info("Connecting to database...")
-    await prisma.connect()
     yield  # this is where the execution will pause and wait for shutdown
     # stop db connection on shutdown
     logger.info("Disconnecting from database...")
-    await prisma.disconnect()
 
 router = APIRouter(lifespan=lifespan) # handle startup and shutdown events
 

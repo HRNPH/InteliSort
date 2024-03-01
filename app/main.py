@@ -1,5 +1,5 @@
 from fastapi.responses import JSONResponse
-from app.api import intelisort
+from app.api.v1 import intelisort
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
