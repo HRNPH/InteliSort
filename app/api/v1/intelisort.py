@@ -41,19 +41,10 @@ router.add_event_handler("shutdown", shutdown_event)
 # -- Routes --
 @router.get('/', tags=["Health Check"])
 async def health_check(request: Request) -> base_response.BaseStatusResponseModel:
-    return base_response.BaseStatusResponseModel(success=True, content="Hello, World!") 
-
-@router.get('/listexample', tags=["Example"])
-async def list_example(request: Request) -> base_response.BaseContentExampleResponseModel:
-    return base_response.BaseContentExampleResponseModel(success=True, content=["Hello", "World!"])
-
-@router.post('/sayhello', tags=["Example"])
-async def greeting(request: Request, to: str) -> base_response.BaseStatusResponseModel:
-    content = example.say_hello(to)
-    return base_response.BaseStatusResponseModel(success=True, content=content)
+    return base_response.BaseStatusResponseModel(success=True, content="Intelisort API is up and running!")
 
 # upload CSV data
-@router.post('/import/csv', tags=["import data"])
+@router.post('/import/csv', tags=["import data (Under Development)"])
 async def import_csv(
     csv_file: UploadFile = File(...),
 ) -> base_response.BaseStatusResponseModel:
