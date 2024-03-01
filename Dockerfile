@@ -38,10 +38,6 @@ COPY --from=builder /install /usr/local
 # Copy the application code to the container
 WORKDIR /backend
 COPY ./app /backend/app
-COPY ./prisma /backend/prisma
-
-# Generate Prisma client
-RUN python3 -m prisma generate
 
 # Listen to $PORT environment variable
 CMD gunicorn -w 1 -k uvicorn.workers.UvicornWorker --bind [::]:$PORT app.main:app --timeout 300
