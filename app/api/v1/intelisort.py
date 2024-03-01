@@ -20,28 +20,23 @@ redis = None
 logger.remove(0)
 logger.add(sys.stderr, format="{time:MMMM D, YYYY > HH:mm:ss!UTC} | {level} | {message}", serialize=False)
 
-# onstart
-async def lifespan(router: APIRouter):
-    # db connection
+async def startup_event():
     logger.info("Connecting to database...")
     global redis
-    redis = await aioredis.from_url(os.environ.get("REDISCLOUD_URL", None))
-    logger.info("Loading csv into redis")
+    redis = await aioredis.from_url(os.environ.get("REDISCLOUD_URL", "redis://localhost"))  # Default to localhost if env var is missing
+    logger.info("Loading csv into Redis")
+    logger.info(os.getcwd())
     await load_csv_to_redis(redis=redis)
-    yield  # this is where the execution will pause and wait for shutdown
-    # stop db connection on shutdown
+
+# Define your shutdown event handler
+async def shutdown_event():
     logger.info("Disconnecting from database...")
+    await redis.close()
 
-router = APIRouter(lifespan=lifespan) # handle startup and shutdown events
-
-async def load_csv_to_redis(redis):
-    df = pd.read_csv('./static/kumyarb.csv')
-    # using HIGH MID LOW
-    for level in ['HIGH', 'MID', 'LOW']:
-        key = f"words:{level.lower()}"  # Redis key pattern, e.g., "words:high"
-        values = df[level].dropna().tolist()
-        if values:
-            await redis.sadd(key, *values)
+router = APIRouter()
+# Attach the event handlers to the FastAPI app
+router.add_event_handler("startup", startup_event)
+router.add_event_handler("shutdown", shutdown_event)
 
 # -- Routes --
 @router.get('/', tags=["Health Check"])
@@ -85,9 +80,19 @@ async def curse_check(text: list[str]):
             }
         )
     
-    return kumyarb(content=result)
+    return kumyarb.KumYarbResponseModel(success=True, content=result)
 
 # -- Function --
+async def load_csv_to_redis(redis):
+    df = pd.read_csv("app/api/v1/static/kumyarb.csv")
+    # using HIGH MID LOW
+    for level in ['HIGH', 'MID', 'LOW']:
+        key = f"words:{level.lower()}"  # Redis key pattern, e.g., "words:high"
+        values = df[level].dropna().tolist()
+        if values:
+            await redis.sadd(key, *values)
+
+
 async def check_kumyarb(text):
     arr = []
     new_text = ""
