@@ -17,6 +17,10 @@ pydantic = "^2.6.1"
 python-multipart = "^0.0.9"
 modal = "^0.57.33"
 redis = "^5.0.1"
+aioredis = "^2.0.1"
+pandas = "^2.2.1"
+pythainlp = "^5.0.1"
+setuptools = "^69.1.1"
 
 
 [build-system]
