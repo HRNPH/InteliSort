@@ -161,3 +161,4 @@ cython_debug/
 
 prisma/migrations/
 *.ipynb
+.DS_Store
