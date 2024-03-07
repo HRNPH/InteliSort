@@ -7,15 +7,16 @@ import os
 load_dotenv()
 
 is_production = os.getenv("ENVIRONMENT") != "development"
-title="Intelisort API",
-description="City Issues Priority Sorting, Grouping and Curse Detection API",
-summary="API Specs for Intelisort Service",
+title="Intelisort API"
+description="City Issues Priority Sorting, Grouping and Curse Detection API"
+summary="API Specs for Intelisort Service"
+
 app = FastAPI(
     title=title,
     description=description,
     summary=summary,
     docs_url=None,
-    redoc_url=None    
+    redoc_url=None,
 ) if is_production else FastAPI(
     title=title,
     description=description,

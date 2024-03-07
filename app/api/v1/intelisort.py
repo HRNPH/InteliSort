@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from app.function import example
 from app.function.validator.data_import import validate_csv
-from app.model import base_response, kumyarb
+from app.model import base_response, kumyarb, query
 import os
 from redis import asyncio as aioredis
 import pandas as pd
@@ -13,6 +13,9 @@ import numpy as np
 from pythainlp.tokenize import word_tokenize
 import pythainlp
 from app.function.helper import * 
+import io
+import csv
+import codecs
 
 redis = None
 
@@ -27,6 +30,7 @@ async def startup_event():
     logger.info("Loading csv into Redis")
     logger.info(os.getcwd())
     await load_csv_to_redis(redis=redis)
+    logger.info("Kumyarb words loaded into Redis")
 
 # Define your shutdown event handler
 async def shutdown_event():
@@ -49,22 +53,49 @@ async def import_csv(
     csv_file: UploadFile = File(...),
 ) -> base_response.BaseStatusResponseModel:
     logger.info(f"Uploading file: {csv_file.filename}")
-    # validate file type
-    is_csv, status_msg = validate_csv(file=csv_file)
-    if not is_csv:
-        logger.error(f"File {csv_file.filename} is not valid, {status_msg}")
-        return base_response.BaseStatusResponseModel(success=is_csv, status=status_msg)
-    logger.info(f"File {csv_file.filename} is valid")
+    
+    valid_columns = [
+        'ticket_id', 'type', 'organization', 'comment', 'coords', 'photo', 'photo_after',
+        'address', 'subdistrict', 'district', 'province', 'timestamp', 'state', 'star',
+        'count_reopen', 'last_activity'
+    ]
+    
+    try:
+        if not csv_file.filename.endswith('.csv'):
+            raise TypeError(f"Invalid file type, only accept .csv file, but got {csv_file.filename}")
+        
+        csv_content = csv.reader(codecs.iterdecode(csv_file.file, 'utf-8-sig'))
+        header = next(csv_content)
+        
+        if not all([column in valid_columns for column in header]):
+            raise ValueError(f"Invalid file column, Required: [{', '.join(valid_columns)}] but got [{', '.join(header)}]")
+        
+        data_json = []
+        for row in csv_content:
+            data_json.append(dict(zip(header, row)))
+        
+        logger.info(f"File {csv_file.filename} is read successfully")
+    
+    except Exception as e:
+        logger.error(f"Error reading file: {str(e)}")
+        return base_response.BaseStatusResponseModel(success=False, status=f"Error reading file: {str(e)}")
+    
     # add data to database
-    clear_database(redis)
-    batch_add_data(csv_file)
-    generate_embeddings_redis(redis)
-    create_index_text(redis)
-    get_info_index(redis)
-    drop_index(redis)
-    return base_response.BaseStatusResponseModel(success=is_csv, status=status_msg)
+    await clear_database(redis)
+    await batch_add_data(data_json, redis)
+    await generate_embeddings_redis(redis)
+    await create_index_text(redis)
+    info = await get_info_index(redis)
+    logger.info(f"Data added to database, {info}")
+    await drop_index(redis)
+    
+    return base_response.BaseStatusResponseModel(success=True, status="CSV file processed successfully")
 
-
+# Query data
+@router.post('/query', tags=["query data (Under Development)"])
+async def query_data(query: list[str]) -> query.QueryResponseModel:
+    result = query_all_texts(query, top_k=5)
+    return query.QueryResponseModel(success=True, content=result)
 
 @router.post('/curse_check', tags=["Functionality"])
 async def curse_check(text: list[str]):

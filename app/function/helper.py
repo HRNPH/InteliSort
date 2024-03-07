@@ -1,4 +1,4 @@
-from config import TEXT_KEY_NAME, EMBEDDING_KEY_NAME, TEXT_INDEX_NAME, PREFIX_INDEX_KEY, VECTOR_DIMENSION
+from app.config.config import TEXT_KEY_NAME, EMBEDDING_KEY_NAME, TEXT_INDEX_NAME, PREFIX_INDEX_KEY, VECTOR_DIMENSION
 import numpy as np
 from redis.commands.search.field import (
     NumericField,
@@ -39,7 +39,7 @@ def preprocess_raw_data(data : dict) -> dict:
     
     return data
 
-def preprocess_and_store_data(data, r):
+async def preprocess_and_store_data(data, r):
     data = preprocess_raw_data(data)
     preprocess_prompt = preprocess_prompt_dict(data)
 
@@ -49,48 +49,49 @@ def preprocess_and_store_data(data, r):
         "raw_data" : data,
         "preprocess_prompt" : preprocess_prompt
     }
-    pipeline.json().set(data_key, '$', preprocess_prompt)
+    await pipeline.json().set(data_key, '$', preprocess_prompt)
     
-    pipeline.execute()
+    await pipeline.execute()
 
-def store_embeddings(key, embeddings, r):
+async def store_embeddings(key, embeddings, r):
     pipeline = r.pipeline(transaction = False)
     for embedding in embeddings:
-        pipeline.json().set(key, '$', embedding)
-    pipeline.execute()
+        await pipeline.json().set(key, '$', embedding)
+    await pipeline.execute()
 
-def add_data(data : dict):
-    preprocess_and_store_data(data)
+async def add_data(data : dict, r):
+    await preprocess_and_store_data(data, r)
 
-def batch_add_data(data : list[dict]):
+async def batch_add_data(data : list[dict], r):
     for d in data:
-        preprocess_and_store_data(d)
+        await preprocess_and_store_data(d, r)
 
 # Database helper
-def clear_database(r):
+async def clear_database(r):
     """Clear the Redis database."""
-    r.flushall()
+    await r.flushall()
 
-def drop_index(r):
+async def drop_index(r):
     drop_index_command = ["FT.DROPINDEX", TEXT_INDEX_NAME] #, -DD] 
-    r.execute_command(*drop_index_command)
+    await r.execute_command(*drop_index_command)
 
 #TODO : batch inference
-def generate_embeddings_redis(r):
-    keys = sorted(r.keys(f'{TEXT_KEY_NAME}:*'))
-    texts = r.json().mget(keys, "$.preprocess_prompt")
+async def generate_embeddings_redis(r):
+    keys = await r.keys(f'{TEXT_KEY_NAME}:*')
+    keys = sorted(keys)
+    texts = await r.json().mget(keys, "$.preprocess_prompt")
     texts = [t for sublist in texts for t in sublist]
     embeddings = call_sentence_encoder(texts)
     embeddings = embeddings.astype(np.float32).tolist()
 
     pipeline = r.pipeline(transaction=False)
     for key, embedding in zip(keys, embeddings):
-        pipeline.json().set(key, "$.embedding", embedding)
+        await pipeline.json().set(key, "$.embedding", embedding)
 
-    pipeline.execute()
+    await pipeline.execute()
 
 # index helper
-def create_index_text(r):
+async def create_index_text(r):
     try:
         schema = (
             # TextField('$.preprocess_prompt', no_stem=True, as_name='preprocess_prompt'),
@@ -108,26 +109,26 @@ def create_index_text(r):
             }, as_name='vector')
         )
     except:
-        r.ft(TEXT_INDEX_NAME).info()
+        await r.ft(TEXT_INDEX_NAME).info()
         print(f"Index {TEXT_INDEX_NAME} already exists")
         
     definition = IndexDefinition(prefix=[PREFIX_INDEX_KEY], index_type=IndexType.JSON)
 
-    r.ft(TEXT_INDEX_NAME).create_index(fields=schema, definition=definition)
+    await r.ft(TEXT_INDEX_NAME).create_index(fields=schema, definition=definition)
 
-def get_info_index(r):
-    info = r.ft(TEXT_INDEX_NAME).info()
+async def get_info_index(r):
+    info = await r.ft(TEXT_INDEX_NAME).info()
 
     num_docs = info['num_docs']
     indexing_failures = info['hash_indexing_failures']
     total_indexing_time = info['total_indexing_time']
     percent_indexed = float(info['percent_indexed']) * 100
 
-    print(f"{num_docs} docs ({percent_indexed}%) indexed w/ {indexing_failures} failures in {float(total_indexing_time):.2f} msecs")
+    return (f"{num_docs} docs ({percent_indexed}%) indexed w/ {indexing_failures} failures in {float(total_indexing_time):.2f} msecs")
 
 # query helper
 
-def query_all_embeddings(r, embeddings, top_k=5):
+async def query_all_embeddings(r, embeddings, top_k=5):
     results_list = []
     query = (
         Query(f"(*)=>[KNN {top_k} @vector $query_vector AS vector_score]")
@@ -146,7 +147,7 @@ def query_all_embeddings(r, embeddings, top_k=5):
     )
     for embedding in embeddings:
         results = (
-            r.ft(TEXT_INDEX_NAME)
+            await r.ft(TEXT_INDEX_NAME)
             .search(
                 query, {"query_vector": np.array(embedding, dtype=np.float32).tobytes()}
             )
@@ -170,7 +171,7 @@ def query_all_embeddings(r, embeddings, top_k=5):
     return results_list
 
 
-def query_all_texts(queries, top_k=5):
+async def query_all_texts(r, queries, top_k=5):
     queries = [preprocess_prompt_dict(text) for text in queries]
     embeddings = call_sentence_encoder(queries)
-    return query_all_embeddings(embeddings, top_k=top_k)
+    return await query_all_embeddings(r, embeddings, top_k=top_k)
