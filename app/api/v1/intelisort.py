@@ -1,5 +1,5 @@
 import sys
-from fastapi import APIRouter, Request, status, File, UploadFile
+from fastapi import APIRouter, Request, status, File, UploadFile, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from loguru import logger
@@ -48,48 +48,63 @@ async def health_check(request: Request) -> base_response.BaseStatusResponseMode
     return base_response.BaseStatusResponseModel(success=True, content="Intelisort API is up and running!")
 
 # upload CSV data
+from starlette.status import HTTP_409_CONFLICT
+
+processing_lock = False
+
 @router.post('/import/csv', tags=["import data (Under Development)"])
 async def import_csv(
+    background_tasks: BackgroundTasks,
     csv_file: UploadFile = File(...),
 ) -> base_response.BaseStatusResponseModel:
-    logger.info(f"Uploading file: {csv_file.filename}")
+    global processing_lock
+    if processing_lock:
+        raise HTTPException(status_code=HTTP_409_CONFLICT, detail="Another file is already being processed. Please try again later.")
     
+    processing_lock = True
+    
+    logger.info(f"Uploading file: {csv_file.filename}")
     valid_columns = [
         'ticket_id', 'type', 'organization', 'comment', 'coords', 'photo', 'photo_after',
         'address', 'subdistrict', 'district', 'province', 'timestamp', 'state', 'star',
         'count_reopen', 'last_activity'
     ]
-    
     try:
         if not csv_file.filename.endswith('.csv'):
             raise TypeError(f"Invalid file type, only accept .csv file, but got {csv_file.filename}")
-        
         csv_content = csv.reader(codecs.iterdecode(csv_file.file, 'utf-8-sig'))
         header = next(csv_content)
-        
         if not all([column in valid_columns for column in header]):
             raise ValueError(f"Invalid file column, Required: [{', '.join(valid_columns)}] but got [{', '.join(header)}]")
-        
         data_json = []
+        chunk_size = 200
         for row in csv_content:
             data_json.append(dict(zip(header, row)))
-        
+            if len(data_json) == chunk_size:
+                background_tasks.add_task(process_chunk, data_json, redis)
+                data_json = []
+        if data_json:
+            background_tasks.add_task(process_chunk, data_json, redis)
         logger.info(f"File {csv_file.filename} is read successfully")
-    
     except Exception as e:
         logger.error(f"Error reading file: {str(e)}")
+        processing_lock = False
         return base_response.BaseStatusResponseModel(success=False, status=f"Error reading file: {str(e)}")
     
-    # add data to database
-    await clear_database(redis)
-    await batch_add_data(data_json, redis)
+    background_tasks.add_task(complete_processing, redis)
+    return base_response.BaseStatusResponseModel(success=True, status="CSV file processing started in the background")
+
+async def process_chunk(data_chunk, redis):
+    await batch_add_data(data_chunk, redis)
     await generate_embeddings_redis(redis)
+
+async def complete_processing(redis):
+    global processing_lock
     await create_index_text(redis)
     info = await get_info_index(redis)
-    logger.info(f"Data added to database, {info}")
+    logger.info(f"Data processing completed successfully, {info}")
     await drop_index(redis)
-    
-    return base_response.BaseStatusResponseModel(success=True, status="CSV file processed successfully")
+    processing_lock = False
 
 # Query data
 @router.post('/query', tags=["query data (Under Development)"])

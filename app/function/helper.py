@@ -9,11 +9,31 @@ from redis.commands.search.field import (
 
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
+import modal
+from typing import Literal
+import base64
+from dotenv import load_dotenv
+load_dotenv()
 
 # Helper functions
 
 def call_sentence_encoder(sentences: list[str]) -> list[list[float]]:
-    return np.random.rand(len(sentences), 384)
+    """
+    Calls the sentence-encoder function in the modal package.
+    params: sentences: list[str] - a list of sentences to encode
+    returns: list[list[float]] - a list of lists of floats, representing the embeddings of the sentences
+    """
+    try:
+        inf_fx = modal.Function.lookup(
+            "sentence-encoder",
+            "sentence_encoder",
+            environment_name="main",
+        )
+        result: list[list[float]] = inf_fx.remote(sentences)
+        return result
+    
+    except Exception as e:  # will be raised from modal if inf_fx.remote fails
+        raise e
 
 def replace_nan_with_empty_string(obj):
     if isinstance(obj, dict):
@@ -82,7 +102,7 @@ async def generate_embeddings_redis(r):
     texts = await r.json().mget(keys, "$.preprocess_prompt")
     texts = [t for sublist in texts for t in sublist]
     embeddings = call_sentence_encoder(texts)
-    embeddings = embeddings.astype(np.float32).tolist()
+    embeddings = embeddings
 
     pipeline = r.pipeline(transaction=False)
     for key, embedding in zip(keys, embeddings):
