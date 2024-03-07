@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 from pythainlp.tokenize import word_tokenize
 import pythainlp
-load_dotenv()
+from app.function.helper import * 
 
 redis = None
 
@@ -55,8 +55,16 @@ async def import_csv(
         logger.error(f"File {csv_file.filename} is not valid, {status_msg}")
         return base_response.BaseStatusResponseModel(success=is_csv, status=status_msg)
     logger.info(f"File {csv_file.filename} is valid")
-    # do something with the content
+    # add data to database
+    clear_database(redis)
+    batch_add_data(csv_file)
+    generate_embeddings_redis(redis)
+    create_index_text(redis)
+    get_info_index(redis)
+    drop_index(redis)
     return base_response.BaseStatusResponseModel(success=is_csv, status=status_msg)
+
+
 
 @router.post('/curse_check', tags=["Functionality"])
 async def curse_check(text: list[str]):
