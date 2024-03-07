@@ -51,17 +51,19 @@ async def health_check(request: Request) -> base_response.BaseStatusResponseMode
 from starlette.status import HTTP_409_CONFLICT
 
 processing_lock = False
+chunk_counter = 0
 
 @router.post('/import/csv', tags=["import data (Under Development)"])
 async def import_csv(
     background_tasks: BackgroundTasks,
     csv_file: UploadFile = File(...),
 ) -> base_response.BaseStatusResponseModel:
-    global processing_lock
+    global processing_lock, chunk_counter
     if processing_lock:
         raise HTTPException(status_code=HTTP_409_CONFLICT, detail="Another file is already being processed. Please try again later.")
     
     processing_lock = True
+    chunk_counter = 0
     
     logger.info(f"Uploading file: {csv_file.filename}")
     valid_columns = [
@@ -81,10 +83,12 @@ async def import_csv(
         for row in csv_content:
             data_json.append(dict(zip(header, row)))
             if len(data_json) == chunk_size:
-                background_tasks.add_task(process_chunk, data_json, redis)
+                chunk_counter += 1
+                background_tasks.add_task(process_chunk, data_json, redis, chunk_counter)
                 data_json = []
         if data_json:
-            background_tasks.add_task(process_chunk, data_json, redis)
+            chunk_counter += 1
+            background_tasks.add_task(process_chunk, data_json, redis, chunk_counter)
         logger.info(f"File {csv_file.filename} is read successfully")
     except Exception as e:
         logger.error(f"Error reading file: {str(e)}")
@@ -94,7 +98,8 @@ async def import_csv(
     background_tasks.add_task(complete_processing, redis)
     return base_response.BaseStatusResponseModel(success=True, status="CSV file processing started in the background")
 
-async def process_chunk(data_chunk, redis):
+async def process_chunk(data_chunk, redis, chunk_number):
+    logger.info(f"Processing data chunk: {chunk_number}")
     await batch_add_data(data_chunk, redis)
     await generate_embeddings_redis(redis)
 
