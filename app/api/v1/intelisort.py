@@ -24,7 +24,7 @@ from app.function.helper import *
 import io
 import csv
 import codecs
-from typing import List, Dict
+from typing import List
 
 redis = None
 
@@ -124,7 +124,7 @@ async def import_csv(
         data_json = []
         chunk_size = 200
         for row in csv_content:
-            data_json.append(Dict(zip(header, row)))
+            data_json.append(dict(zip(header, row)))
             if len(data_json) == chunk_size:
                 chunk_counter += 1
                 background_tasks.add_task(
@@ -178,16 +178,16 @@ async def complete_processing_api():
 
 
 @router.post("/query_from_similarity", tags=["query data (Under Development)"])
-async def query_data(queries: List[Dict]) -> query.QuerySimilarityResponseModel:
+async def query_data(queries: List[dict]) -> query.QuerySimilarityResponseModel:
     result = await query_all_texts(redis, queries=queries, top_k=5)
     return query.QuerySimilarityResponseModel(success=True, content=result)
 
 
 @router.post("/query_from_distance", tags=["query data (Under Development)"])
-async def query_data_from_distance(queries: List[Dict]):
+async def query_data_from_distance(queries: List[dict]):
     result = await query_all_texts_from_distance(redis, queries, top_k=5, radius=600)
     return {"success": True, "content": result}
-    # return query.QueryDistanceResponseModel(success=True, content=formatted_results)
+    # return query.QueryDistanceResponseModel(success=True, content=result)
 
 
 @router.post("/curse_check", tags=["Functionality"])

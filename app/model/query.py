@@ -13,7 +13,19 @@ class QuerySimilarityModel(BaseModel):
     sub_district: Optional[str] = None
 
 class QuerySimilarityResponseModel(BaseResponseModel):
+    success: bool
     content: List[
         QuerySimilarityModel
     ]
-    
+
+class QueryDistanceModel(BaseModel):
+    distance: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    data: Optional[dict] = None
+
+class QueryDistanceResponseModel(BaseResponseModel):
+    success: bool
+    content: List[
+        QueryDistanceModel
+    ]
