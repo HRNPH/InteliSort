@@ -69,51 +69,6 @@
                 }
             }
         },
-        "/intelisort/query": {
-            "post": {
-                "tags": [
-                    "query data (Under Development)"
-                ],
-                "summary": "Query Data",
-                "operationId": "query_data_intelisort_query_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array",
-                                "title": "Query"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/QueryResponseModel"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/intelisort/curse_check": {
             "post": {
                 "tags": [
