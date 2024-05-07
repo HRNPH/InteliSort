@@ -1,18 +1,19 @@
-from typing import List, Any, Union, NewType, Literal
+from typing import List, Any, Union, NewType, Literal, Optional
 from pydantic import BaseModel
 
 from app.model.base_response import BaseResponseModel
 
-class QueryModel(BaseModel):
-    vector_score: int
-    state: str
-    comment: str
-    type: str
-    address: str
-    province: str
-    sub_district: str
+class QuerySimilarityModel(BaseModel):
+    vector_score: float
+    state: Optional[str] = None
+    comment: Optional[str] = None
+    type: Optional[str] = None
+    address: Optional[str] = None
+    province: Optional[str] = None
+    sub_district: Optional[str] = None
 
-class QueryResponseModel(BaseResponseModel):
+class QuerySimilarityResponseModel(BaseResponseModel):
     content: List[
-        QueryModel
+        QuerySimilarityModel
     ]
+    

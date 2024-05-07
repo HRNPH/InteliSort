@@ -124,7 +124,7 @@ async def import_csv(
         data_json = []
         chunk_size = 200
         for row in csv_content:
-            data_json.append(dict(zip(header, row)))
+            data_json.append(Dict(zip(header, row)))
             if len(data_json) == chunk_size:
                 chunk_counter += 1
                 background_tasks.add_task(
@@ -177,22 +177,21 @@ async def complete_processing_api():
     return {"success": True, "content": response}
 
 
-# Query data
 @router.post("/query_from_similarity", tags=["query data (Under Development)"])
-async def query_data(queries: list[dict]):
+async def query_data(queries: List[Dict]) -> query.QuerySimilarityResponseModel:
     result = await query_all_texts(redis, queries=queries, top_k=5)
-    return {"success": True, "content": result}
+    return query.QuerySimilarityResponseModel(success=True, content=result)
 
 
 @router.post("/query_from_distance", tags=["query data (Under Development)"])
-async def query_data_from_distance(queries: list[dict]):
+async def query_data_from_distance(queries: List[Dict]):
     result = await query_all_texts_from_distance(redis, queries, top_k=5, radius=600)
     return {"success": True, "content": result}
     # return query.QueryDistanceResponseModel(success=True, content=formatted_results)
 
 
 @router.post("/curse_check", tags=["Functionality"])
-async def curse_check(text: list[str]):
+async def curse_check(text: List[str]):
     result = []
     for t in text:
         meta, new_text = await check_kumyarb(t)
