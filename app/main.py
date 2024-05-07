@@ -2,6 +2,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1 import intelisort
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -62,3 +63,7 @@ def root(request: Request):
     ip = request.client.host
     print("ip:", ip)
     return {"message": "Up And Running!"}
+
+@app.get('/docs', include_in_schema=False)
+def get_docs():
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="docs")

@@ -1,0 +1,334 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Intelisort API",
+        "summary": "API Specs for Intelisort Service",
+        "description": "City Issues Priority Sorting, Grouping and Curse Detection API",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/intelisort/": {
+            "get": {
+                "tags": [
+                    "Health Check"
+                ],
+                "summary": "Health Check",
+                "operationId": "health_check_intelisort__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BaseStatusResponseModel"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/intelisort/import/csv": {
+            "post": {
+                "tags": [
+                    "import data (Under Development)"
+                ],
+                "summary": "Import Csv",
+                "operationId": "import_csv_intelisort_import_csv_post",
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_import_csv_intelisort_import_csv_post"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BaseStatusResponseModel"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/intelisort/query": {
+            "post": {
+                "tags": [
+                    "query data (Under Development)"
+                ],
+                "summary": "Query Data",
+                "operationId": "query_data_intelisort_query_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array",
+                                "title": "Query"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QueryResponseModel"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/intelisort/curse_check": {
+            "post": {
+                "tags": [
+                    "Functionality"
+                ],
+                "summary": "Curse Check",
+                "operationId": "curse_check_intelisort_curse_check_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array",
+                                "title": "Text"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/": {
+            "get": {
+                "summary": "Root",
+                "operationId": "root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "BaseStatusResponseModel": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "content": {
+                        "title": "Content"
+                    },
+                    "error": {
+                        "type": "string",
+                        "title": "Error"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "success",
+                    "status"
+                ],
+                "title": "BaseStatusResponseModel"
+            },
+            "Body_import_csv_intelisort_import_csv_post": {
+                "properties": {
+                    "csv_file": {
+                        "type": "string",
+                        "format": "binary",
+                        "title": "Csv File"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "csv_file"
+                ],
+                "title": "Body_import_csv_intelisort_import_csv_post"
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "QueryModel": {
+                "properties": {
+                    "vector_score": {
+                        "type": "integer",
+                        "title": "Vector Score"
+                    },
+                    "state": {
+                        "type": "string",
+                        "title": "State"
+                    },
+                    "comment": {
+                        "type": "string",
+                        "title": "Comment"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Type"
+                    },
+                    "address": {
+                        "type": "string",
+                        "title": "Address"
+                    },
+                    "province": {
+                        "type": "string",
+                        "title": "Province"
+                    },
+                    "sub_district": {
+                        "type": "string",
+                        "title": "Sub District"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "vector_score",
+                    "state",
+                    "comment",
+                    "type",
+                    "address",
+                    "province",
+                    "sub_district"
+                ],
+                "title": "QueryModel"
+            },
+            "QueryResponseModel": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "content": {
+                        "items": {
+                            "$ref": "#/components/schemas/QueryModel"
+                        },
+                        "type": "array",
+                        "title": "Content"
+                    },
+                    "error": {
+                        "type": "string",
+                        "title": "Error"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "success",
+                    "content"
+                ],
+                "title": "QueryResponseModel"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        }
+    }
+}
