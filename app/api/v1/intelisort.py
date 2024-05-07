@@ -24,6 +24,7 @@ from app.function.helper import *
 import io
 import csv
 import codecs
+from typing import List, Dict
 
 redis = None
 
@@ -155,26 +156,40 @@ async def process_chunk(data_chunk, redis, chunk_number):
 
 async def complete_processing(redis):
     global processing_lock
-    await create_index_text(redis)
+    response = await create_index_text(redis)
+    logger.info(f"Indexing completed successfully, {response}")
     info = await get_info_index(redis)
     logger.info(f"Data processing completed successfully, {info}")
-    await drop_index(redis)
+    # await drop_index(redis) # auto delete index wtf
     processing_lock = False
+    return response
+
+
+@router.get("/index_info", tags=["Functionality"])
+async def get_index_info():
+    info = await get_info_index(redis)
+    return {"success": True, "content": info}
+
+
+@router.get("/complete_processing", tags=["Functionality"])
+async def complete_processing_api():
+    response = await complete_processing(redis)
+    return {"success": True, "content": response}
 
 
 # Query data
-# Fix : query data wrong logic
-@router.post("/query", tags=["query data (Under Development)"])
-async def query_data(queries: list[dict]) -> query.QueryResponseModel:
+@router.post("/query_from_similarity", tags=["query data (Under Development)"])
+async def query_data(queries: list[dict]):
     result = await query_all_texts(redis, queries=queries, top_k=5)
-    return query.QueryResponseModel(success=True, content=result)
+    return {"success": True, "content": result}
 
 
 @router.post("/query_from_distance", tags=["query data (Under Development)"])
 async def query_data_from_distance(queries: list[dict]):
     result = await query_all_texts_from_distance(redis, queries, top_k=5, radius=600)
-    return result
+    return {"success": True, "content": result}
     # return query.QueryDistanceResponseModel(success=True, content=formatted_results)
+
 
 @router.post("/curse_check", tags=["Functionality"])
 async def curse_check(text: list[str]):

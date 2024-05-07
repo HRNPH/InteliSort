@@ -164,7 +164,7 @@ async def create_index_text(r):
             TextField("$.raw_data.address", no_stem=True, as_name="address"),
             TextField("$.raw_data.district", no_stem=True, as_name="district"),
             TextField("$.raw_data.province", no_stem=True, as_name="province"),
-            TextField("$.raw_data.subdistrict", no_stem=True, as_name="subdistrict"),
+            TextField("$.raw_data.subdistrict", no_stem=True, as_name="subdistrict"), 
             VectorField(
                 f"$.{EMBEDDING_KEY_NAME}",
                 "FLAT",
@@ -176,14 +176,14 @@ async def create_index_text(r):
                 as_name="vector",
             ),
         )
+        definition = IndexDefinition(prefix=[PREFIX_INDEX_KEY], index_type=IndexType.JSON)
+        await r.ft(TEXT_INDEX_NAME).create_index(fields=schema, definition=definition)
+
     except:
         await r.ft(TEXT_INDEX_NAME).info()
-        print(f"Index {TEXT_INDEX_NAME} already exists")
+        return f"Index {TEXT_INDEX_NAME} already exists"
 
-    definition = IndexDefinition(prefix=[PREFIX_INDEX_KEY], index_type=IndexType.JSON)
-
-    await r.ft(TEXT_INDEX_NAME).create_index(fields=schema, definition=definition)
-
+    return f"Index {TEXT_INDEX_NAME} created"
 
 async def get_info_index(r):
     info = await r.ft(TEXT_INDEX_NAME).info()
@@ -222,8 +222,8 @@ async def query_all_embeddings(r, embeddings, top_k=5):
             .search(
                 query, {"query_vector": np.array(embedding, dtype=np.float32).tobytes()}
             )
-            .docs
         )
+        results = results.docs
         for result in results:
             vector_score = round(1 - float(result.vector_score), 3)
             results_list.append(
@@ -242,13 +242,17 @@ async def query_all_embeddings(r, embeddings, top_k=5):
     return results_list
 
 
-async def query_all_texts(r, queries:list[dict], top_k=5):
-    queries = [preprocess_prompt_dict(text) for text in queries]
-    embeddings = call_sentence_encoder(queries)
+async def query_all_texts(r, queries: list[dict], top_k=5):
+    queries = [preprocess_raw_data(q) for q in queries]
+    queries = [preprocess_prompt_dict(q) for q in queries]
+    embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
+    # embeddings = call_sentence_encoder(queries)
     return await query_all_embeddings(r, embeddings, top_k=top_k)
 
 
-async def query_all_texts_from_distance(r, queries: list[dict], top_k: int = 5, radius: int = 600):
+async def query_all_texts_from_distance(
+    r, queries: list[dict], top_k: int = 5, radius: int = 600
+):
     top_k += 1
     tasks = []
     for query in queries:
@@ -281,18 +285,22 @@ async def query_all_texts_from_distance(r, queries: list[dict], top_k: int = 5, 
             data_key = f"{TEXT_KEY_NAME}:{ticket_id}"
             data = await r.json().get(data_key, "$")
             try:
-                results_list.append({
-                    "distance": distance,
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "data": data[0]["raw_data"],
-                })
+                results_list.append(
+                    {
+                        "distance": distance,
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "data": data[0]["raw_data"],
+                    }
+                )
             except:
-                results_list.append({
-                    "distance": distance,
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "data": {}
-                })
+                results_list.append(
+                    {
+                        "distance": distance,
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "data": {},
+                    }
+                )
         final_list.append(results_list)
     return final_list
