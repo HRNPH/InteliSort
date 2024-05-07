@@ -4,6 +4,7 @@ from app.config.config import (
     TEXT_INDEX_NAME,
     PREFIX_INDEX_KEY,
     VECTOR_DIMENSION,
+    LOCATION_KEY_NAME,
 )
 import numpy as np
 from redis.commands.search.field import (
@@ -12,9 +13,11 @@ from redis.commands.search.field import (
     TextField,
     VectorField,
 )
+from app.model import base_response, kumyarb, query
 
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
+import asyncio
 import modal
 from typing import Literal
 import base64
@@ -22,9 +25,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 # Helper functions
-
-
 def call_sentence_encoder(sentences: list[str]) -> list[list[float]]:
     """
     Calls the sentence-encoder function in the modal package.
@@ -56,6 +58,19 @@ def replace_nan_with_empty_string(obj):
     return obj
 
 
+def preprocess_coords_dict(data: dict) -> dict:
+    coords = data["coords"]
+    longitude = float(coords.split(",")[0])
+    latitude = float(coords.split(",")[1])
+    location_memeber_key = f"{LOCATION_KEY_NAME}:{data['ticket_id']}"
+    member_data = {
+        "longitude": longitude,
+        "latitude": latitude,
+        "name": location_memeber_key,
+    }
+    return member_data
+
+
 def preprocess_prompt_dict(data: dict) -> str:
     data["type"] = data["type"].strip("{}")
     data["type"] = "ไม่มีชนิด" if data["type"] == "" else data["type"]
@@ -71,6 +86,16 @@ def preprocess_raw_data(data: dict) -> dict:
     return data
 
 
+async def add_geospatial_index(data, pipeline):
+    preprocess_coords = preprocess_coords_dict(data)
+
+    longitude = preprocess_coords["longitude"]
+    latitude = preprocess_coords["latitude"]
+    member_name = preprocess_coords["name"]
+
+    await pipeline.geoadd(LOCATION_KEY_NAME, [longitude, latitude, member_name])
+
+
 async def preprocess_and_store_data(data, r):
     data = preprocess_raw_data(data)
     preprocess_prompt = preprocess_prompt_dict(data)
@@ -79,6 +104,8 @@ async def preprocess_and_store_data(data, r):
     pipeline = r.pipeline(transaction=False)
     preprocess_prompt = {"raw_data": data, "preprocess_prompt": preprocess_prompt}
     await pipeline.json().set(data_key, "$", preprocess_prompt)
+
+    await add_geospatial_index(data, pipeline)
 
     await pipeline.execute()
 
@@ -215,7 +242,57 @@ async def query_all_embeddings(r, embeddings, top_k=5):
     return results_list
 
 
-async def query_all_texts(r, queries, top_k=5):
+async def query_all_texts(r, queries:list[dict], top_k=5):
     queries = [preprocess_prompt_dict(text) for text in queries]
     embeddings = call_sentence_encoder(queries)
     return await query_all_embeddings(r, embeddings, top_k=top_k)
+
+
+async def query_all_texts_from_distance(r, queries: list[dict], top_k: int = 5, radius: int = 600):
+    top_k += 1
+    tasks = []
+    for query in queries:
+        name = f"{LOCATION_KEY_NAME}:{query['ticket_id']}"
+        exist = r.exists(name)
+        if exist == 0:
+            tasks.append(add_geospatial_index(query))
+    await asyncio.gather(*tasks)
+
+    final_list = []
+    for query in queries:
+        name = preprocess_coords_dict(query)["name"]
+        results = await r.georadiusbymember(
+            LOCATION_KEY_NAME,
+            name,
+            radius,
+            unit="m",
+            withdist=True,
+            withcoord=True,
+            count=top_k,
+        )
+        results_list = []
+        for i, result in enumerate(results):
+            member_name = result[0].decode("utf-8")
+            ticket_id = member_name.split(":")[-1]
+            if ticket_id == query["ticket_id"]:
+                continue
+            distance = result[1]
+            latitude, longitude = result[2]
+            data_key = f"{TEXT_KEY_NAME}:{ticket_id}"
+            data = await r.json().get(data_key, "$")
+            try:
+                results_list.append({
+                    "distance": distance,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "data": data[0]["raw_data"],
+                })
+            except:
+                results_list.append({
+                    "distance": distance,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "data": {}
+                })
+        final_list.append(results_list)
+    return final_list

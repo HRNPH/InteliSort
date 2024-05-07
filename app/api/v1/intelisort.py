@@ -163,11 +163,18 @@ async def complete_processing(redis):
 
 
 # Query data
+# Fix : query data wrong logic
 @router.post("/query", tags=["query data (Under Development)"])
-async def query_data(query: list[str]) -> query.QueryResponseModel:
-    result = query_all_texts(query, top_k=5)
+async def query_data(queries: list[dict]) -> query.QueryResponseModel:
+    result = await query_all_texts(redis, queries=queries, top_k=5)
     return query.QueryResponseModel(success=True, content=result)
 
+
+@router.post("/query_from_distance", tags=["query data (Under Development)"])
+async def query_data_from_distance(queries: list[dict]):
+    result = await query_all_texts_from_distance(redis, queries, top_k=5, radius=600)
+    return result
+    # return query.QueryDistanceResponseModel(success=True, content=formatted_results)
 
 @router.post("/curse_check", tags=["Functionality"])
 async def curse_check(text: list[str]):

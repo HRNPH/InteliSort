@@ -21,6 +21,7 @@ aioredis = "^2.0.1"
 pandas = "^2.2.1"
 pythainlp = "^5.0.1"
 setuptools = "^69.1.1"
+asyncio = "^3.4.3"
 
 
 [build-system]
