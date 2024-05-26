@@ -63,8 +63,8 @@ router.add_event_handler("shutdown", shutdown_event)
 
 # -- Routes --
 @router.get("/", tags=["Health Check"])
-async def health_check(request: Request) -> base_response.BaseStatusResponseModel:
-    return base_response.BaseStatusResponseModel(
+async def health_check(request: Request) -> base_response.BaseResponseModel:
+    return base_response.BaseResponseModel(
         success=True, content="Intelisort API is up and running!"
     )
 
