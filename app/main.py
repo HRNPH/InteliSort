@@ -1,16 +1,19 @@
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from app.api.v1 import intelisort
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, Security, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from dotenv import load_dotenv
 import os
+
 load_dotenv()
 
 is_production = os.getenv("ENVIRONMENT") != "development"
-title="Intelisort API"
-description="City Issues Priority Sorting, Grouping and Curse Detection API"
-summary="API Specs for Intelisort Service"
+title = "Intelisort API"
+description = "City Issues Priority Sorting, Grouping and Curse Detection API"
+summary = "API Specs for Intelisort Service"
+API_KEY = os.getenv("API_KEY")
 
 app = FastAPI(
     title=title,
@@ -26,24 +29,7 @@ app = FastAPI(
 
 # Define the allowed hosts from settings.ALLOW_HOSTS and settings.ALLOW_CORS
 
-# Add Custom Middleware Validators
-@app.middleware('http')
-async def validate_ip(request: Request, call_next):
-    # Get client IP
-    # ip = str(request.client.host)
-    # # get api key in header
-    # api_key = request.headers.get("api-key")
-    # # Check if IP is allowed
-    # if api_key != os.environ.get("API_KEY") and is_production:
-    #     data = {
-    #         'message': f'IP {ip} is not allowed to access this resource.'
-    #     }
-    #     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=data)
-
-    # # Proceed if IP is allowed
-    return await call_next(request)
-
-# allow cors
+# Middleware to allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -52,7 +38,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(intelisort.router, prefix="/intelisort")
+# API key header dependency
+api_key_header = APIKeyHeader(name="api-key")
+
+def validate_api_key(api_key: str = Security(api_key_header)):
+    if api_key != API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid API key",
+        )
+
+# Include the router with the dependency for API key validation
+app.include_router(
+    intelisort.router,
+    prefix="/intelisort",
+    tags=["intelisort"],
+    dependencies=[Depends(validate_api_key)],
+    responses={404: {"description": "Not found"}},
+)
 
 @app.get("/")
 def root(request: Request):
