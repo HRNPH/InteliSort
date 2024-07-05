@@ -187,7 +187,6 @@ async def query_data_from_similarity(queries: List[dict]) -> query.QuerySimilari
 async def query_data_from_distance(queries: List[dict]) -> query.QueryDistanceResponseModel:
     result = await query_all_texts_from_distance(redis, queries, top_k=5, radius=600)
     return query.QueryDistanceResponseModel(success=True, content=result)
-    # return {"success": True, "content": result}
 
 
 @router.post("/curse_check", tags=["Functionality"])
