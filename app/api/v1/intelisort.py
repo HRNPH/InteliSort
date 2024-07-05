@@ -7,6 +7,7 @@ from fastapi import (
     UploadFile,
     BackgroundTasks,
     HTTPException,
+    Query,
 )
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
@@ -24,7 +25,7 @@ from app.function.helper import *
 import io
 import csv
 import codecs
-from typing import List
+from typing import List, Optional
 
 redis = None
 
@@ -178,14 +179,22 @@ async def complete_processing_api():
 
 
 @router.post("/query_from_similarity", tags=["2. query data"])
-async def query_data_from_similarity(queries: List[dict]) -> query.QuerySimilarityResponseModel:
-    result = await query_all_texts_from_similarity(redis, queries=queries, top_k=5)
+async def query_data_from_similarity(
+    request: query.QuerySimilarityRequest,
+) -> query.QuerySimilarityResponseModel:
+    result = await query_all_texts_from_similarity(
+        redis, queries=request.queries, top_k=request.top_k
+    )
     return query.QuerySimilarityResponseModel(success=True, content=result)
 
 
 @router.post("/query_from_distance", tags=["2. query data"])
-async def query_data_from_distance(queries: List[dict]) -> query.QueryDistanceResponseModel:
-    result = await query_all_texts_from_distance(redis, queries, top_k=5, radius=600)
+async def query_data_from_distance(
+    request: query.QueryDistanceRequest,
+) -> query.QueryDistanceResponseModel:
+    result = await query_all_texts_from_distance(
+        redis, request.queries, top_k=request.top_k, radius=request.radius
+    )
     return query.QueryDistanceResponseModel(success=True, content=result)
 
 

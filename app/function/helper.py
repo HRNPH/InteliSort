@@ -14,6 +14,7 @@ from redis.commands.search.field import (
     TextField,
     VectorField,
 )
+from pydantic import BaseModel
 from app.model import base_response, kumyarb, query
 
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
@@ -79,6 +80,8 @@ def preprocess_prompt_dict(data: dict) -> str:
 
 
 def preprocess_raw_data(data: dict) -> dict:
+    if isinstance(data, BaseModel):
+        data = data.dict()
     data = {k: v if v is not None else "" for k, v in data.items()}
     data = replace_nan_with_empty_string(data)
 
@@ -266,6 +269,7 @@ async def query_all_texts_from_distance(
     r: Redis, queries: List[dict], top_k: int = 5, radius: int = 600
 ) -> List[List[Dict]]:
     top_k += 1
+    queries = [preprocess_raw_data(q) for q in queries]
     await ensure_geospatial_indices(r, queries)
     return await process_queries_distance_query(r, queries, top_k, radius)
 
