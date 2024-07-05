@@ -22,6 +22,7 @@ import modal
 from typing import Literal
 import base64
 from dotenv import load_dotenv
+from typing import List
 
 load_dotenv()
 
@@ -72,11 +73,8 @@ def preprocess_coords_dict(data: dict) -> dict:
 
 
 def preprocess_prompt_dict(data: dict) -> str:
-    data["type"] = data["type"].strip("{}")
-    data["type"] = "ไม่มีชนิด" if data["type"] == "" else data["type"]
-
     data["comment"] = data["comment"].replace("ปัญหา:", "")
-    return data["type"] + " " + data["comment"]
+    return data["comment"]
 
 
 def preprocess_raw_data(data: dict) -> dict:
@@ -200,7 +198,7 @@ async def get_info_index(r):
 
 
 async def query_all_embeddings(r, embeddings, top_k=5):
-    results_list = []
+    final_list = []
     query = (
         Query(f"(*)=>[KNN {top_k} @vector $query_vector AS vector_score]")
         .sort_by("vector_score")
@@ -224,6 +222,7 @@ async def query_all_embeddings(r, embeddings, top_k=5):
             )
         )
         results = results.docs
+        results_list = []
         for result in results:
             vector_score = round(1 - float(result.vector_score), 3)
             results_list.append(
@@ -238,11 +237,12 @@ async def query_all_embeddings(r, embeddings, top_k=5):
                     "subdistrict": result.subdistrict,
                 }
             )
-        break
-    return results_list
+        final_list.append(results_list)
+
+    return final_list
 
 
-async def query_all_texts(r, queries: list[dict], top_k=5):
+async def query_all_texts_from_similarity(r, queries: List[dict], top_k=5):
     queries = [preprocess_raw_data(q) for q in queries]
     queries = [preprocess_prompt_dict(q) for q in queries]
     # embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
@@ -251,7 +251,7 @@ async def query_all_texts(r, queries: list[dict], top_k=5):
 
 
 async def query_all_texts_from_distance(
-    r, queries: list[dict], top_k: int = 5, radius: int = 600
+    r, queries: List[dict], top_k: int = 5, radius: int = 600
 ):
     top_k += 1
     tasks = []
@@ -274,6 +274,7 @@ async def query_all_texts_from_distance(
             withcoord=True,
             count=top_k,
         )
+        
         results_list = []
         for i, result in enumerate(results):
             member_name = result[0].decode("utf-8")
@@ -303,4 +304,5 @@ async def query_all_texts_from_distance(
                     }
                 )
         final_list.append(results_list)
+        
     return final_list

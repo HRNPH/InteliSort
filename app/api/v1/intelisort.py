@@ -76,7 +76,7 @@ processing_lock = False
 chunk_counter = 0
 
 
-@router.post("/import/csv", tags=["import data (Under Development)"])
+@router.post("/import/csv", tags=["1. import data"])
 async def import_csv(
     background_tasks: BackgroundTasks,
     csv_file: UploadFile = File(...),
@@ -171,23 +171,23 @@ async def get_index_info():
     return {"success": True, "content": info}
 
 
-@router.get("/complete_processing", tags=["Functionality"])
+@router.get("/complete_processing", tags=["preprocessing data"])
 async def complete_processing_api():
     response = await complete_processing(redis)
     return {"success": True, "content": response}
 
 
-@router.post("/query_from_similarity", tags=["query data (Under Development)"])
-async def query_data(queries: List[dict]) -> query.QuerySimilarityResponseModel:
-    result = await query_all_texts(redis, queries=queries, top_k=5)
+@router.post("/query_from_similarity", tags=["2. query data"])
+async def query_data_from_similarity(queries: List[dict]) -> query.QuerySimilarityResponseModel:
+    result = await query_all_texts_from_similarity(redis, queries=queries, top_k=5)
     return query.QuerySimilarityResponseModel(success=True, content=result)
 
 
-@router.post("/query_from_distance", tags=["query data (Under Development)"])
-async def query_data_from_distance(queries: List[dict]):
+@router.post("/query_from_distance", tags=["2. query data"])
+async def query_data_from_distance(queries: List[dict]) -> query.QueryDistanceResponseModel:
     result = await query_all_texts_from_distance(redis, queries, top_k=5, radius=600)
-    return {"success": True, "content": result}
-    # return query.QueryDistanceResponseModel(success=True, content=result)
+    return query.QueryDistanceResponseModel(success=True, content=result)
+    # return {"success": True, "content": result}
 
 
 @router.post("/curse_check", tags=["Functionality"])

@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from app.model.base_response import BaseResponseModel
 
+
 class QuerySimilarityModel(BaseModel):
     vector_score: float
     state: Optional[str] = None
@@ -12,11 +13,11 @@ class QuerySimilarityModel(BaseModel):
     province: Optional[str] = None
     sub_district: Optional[str] = None
 
+
 class QuerySimilarityResponseModel(BaseResponseModel):
     success: bool
-    content: List[
-        QuerySimilarityModel
-    ]
+    content: List[Union[List[QuerySimilarityModel], Any]]
+
 
 class QueryDistanceModel(BaseModel):
     distance: float
@@ -24,8 +25,7 @@ class QueryDistanceModel(BaseModel):
     longitude: Optional[float] = None
     data: Optional[dict] = None
 
+
 class QueryDistanceResponseModel(BaseResponseModel):
     success: bool
-    content: List[
-        QueryDistanceModel
-    ]
+    content: List[Union[List[QueryDistanceModel], Any]]
