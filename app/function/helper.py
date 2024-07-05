@@ -260,8 +260,8 @@ def process_result_similarity_query(result) -> Dict:
 async def query_all_texts_from_similarity(r: Redis, queries: List[dict], top_k=5):
     queries = [preprocess_raw_data(q) for q in queries]
     queries = [preprocess_prompt_dict(q) for q in queries]
-    embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
-    # embeddings = call_sentence_encoder(queries)
+    # embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
+    embeddings = call_sentence_encoder(queries)
     return await query_embeddings_by_similarity(r, embeddings, top_k=top_k)
 
 
