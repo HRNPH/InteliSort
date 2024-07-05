@@ -69,7 +69,7 @@ check the status of the uploaded file [swagger](http://localhost:8000/docs#/inte
 query data from similarity [swagger](http://localhost:8000/docs#/2.%20query%20data/query_data_from_similarity_intelisort_query_from_similarity_post)
 
 -   /intelisort/query_from_similarity
-    -   input
+    -   request
         ```json
         {
             "queries": [
@@ -95,7 +95,7 @@ query data from similarity [swagger](http://localhost:8000/docs#/2.%20query%20da
             "top_k": 3
         }
         ```
-    -   output
+    -   response
         ```json
         {
             "success": true,
@@ -131,7 +131,7 @@ query data from similarity [swagger](http://localhost:8000/docs#/2.%20query%20da
 query data from distance [swagger](http://localhost:8000/docs#/2.%20query%20data/query_data_from_distance_intelisort_query_from_distance_post)
 
 -   /intelisort/query_from_distance
-    -   input
+    -   request
         ```json
         {
             "queries": [
@@ -142,7 +142,7 @@ query data from distance [swagger](http://localhost:8000/docs#/2.%20query%20data
             "radius": 600
         }
         ```
-    -   output
+    -   response
         ```json
         {
             "success": true,
