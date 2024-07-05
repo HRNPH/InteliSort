@@ -7,6 +7,7 @@ from app.config.config import (
     LOCATION_KEY_NAME,
 )
 import numpy as np
+from redis import Redis
 from redis.commands.search.field import (
     NumericField,
     TagField,
@@ -22,7 +23,7 @@ import modal
 from typing import Literal
 import base64
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Dict
 
 load_dotenv()
 
@@ -162,7 +163,7 @@ async def create_index_text(r):
             TextField("$.raw_data.address", no_stem=True, as_name="address"),
             TextField("$.raw_data.district", no_stem=True, as_name="district"),
             TextField("$.raw_data.province", no_stem=True, as_name="province"),
-            TextField("$.raw_data.subdistrict", no_stem=True, as_name="subdistrict"), 
+            TextField("$.raw_data.subdistrict", no_stem=True, as_name="subdistrict"),
             VectorField(
                 f"$.{EMBEDDING_KEY_NAME}",
                 "FLAT",
@@ -174,7 +175,9 @@ async def create_index_text(r):
                 as_name="vector",
             ),
         )
-        definition = IndexDefinition(prefix=[PREFIX_INDEX_KEY], index_type=IndexType.JSON)
+        definition = IndexDefinition(
+            prefix=[PREFIX_INDEX_KEY], index_type=IndexType.JSON
+        )
         await r.ft(TEXT_INDEX_NAME).create_index(fields=schema, definition=definition)
 
     except:
@@ -182,6 +185,7 @@ async def create_index_text(r):
         return f"Index {TEXT_INDEX_NAME} already exists"
 
     return f"Index {TEXT_INDEX_NAME} created"
+
 
 async def get_info_index(r):
     info = await r.ft(TEXT_INDEX_NAME).info()
@@ -197,11 +201,22 @@ async def get_info_index(r):
 # query helper
 
 
-async def query_all_embeddings(r, embeddings, top_k=5):
-    final_list = []
-    query = (
-        Query(f"(*)=>[KNN {top_k} @vector $query_vector AS vector_score]")
-        .sort_by("vector_score")
+async def query_embeddings_by_similarity(
+    r, embeddings: List[List[float]], top_k: int = 5
+) -> List[List[Dict]]:
+    similarity_query = create_similarity_query(top_k)
+    return await asyncio.gather(
+        *[
+            process_single_embedding_similarity_query(r, embedding, similarity_query)
+            for embedding in embeddings
+        ]
+    )
+
+
+def create_similarity_query(top_k: int) -> Query:
+    return (
+        Query(f"(*)=>[KNN {top_k} @vector $query_vector AS similarity_score]")
+        .sort_by("similarity_score")
         .return_fields(
             "state",
             "comment",
@@ -210,99 +225,110 @@ async def query_all_embeddings(r, embeddings, top_k=5):
             "district",
             "province",
             "subdistrict",
-            "vector_score",
+            "similarity_score",
         )
         .dialect(2)
     )
-    for embedding in embeddings:
-        results = (
-            await r.ft(TEXT_INDEX_NAME)
-            .search(
-                query, {"query_vector": np.array(embedding, dtype=np.float32).tobytes()}
-            )
-        )
-        results = results.docs
-        results_list = []
-        for result in results:
-            vector_score = round(1 - float(result.vector_score), 3)
-            results_list.append(
-                {
-                    "vector_score": vector_score,
-                    "state": result.state,
-                    "comment": result.comment,
-                    "type": result.type,
-                    "address": result.address,
-                    "district": result.district,
-                    "province": result.province,
-                    "subdistrict": result.subdistrict,
-                }
-            )
-        final_list.append(results_list)
-
-    return final_list
 
 
-async def query_all_texts_from_similarity(r, queries: List[dict], top_k=5):
+async def process_single_embedding_similarity_query(
+    r, embedding: List[float], q: Query
+) -> List[Dict]:
+    results = await r.ft(TEXT_INDEX_NAME).search(
+        q, {"query_vector": np.array(embedding, dtype=np.float32).tobytes()}
+    )
+    return [process_result_similarity_query(result) for result in results.docs]
+
+
+def process_result_similarity_query(result) -> Dict:
+    similarity_score = round(1 - float(result.similarity_score), 3)
+    return {
+        "similarity_score": similarity_score,
+        "state": result.state,
+        "comment": result.comment,
+        "type": result.type,
+        "address": result.address,
+        "district": result.district,
+        "province": result.province,
+        "subdistrict": result.subdistrict,
+    }
+
+
+async def query_all_texts_from_similarity(r: Redis, queries: List[dict], top_k=5):
     queries = [preprocess_raw_data(q) for q in queries]
     queries = [preprocess_prompt_dict(q) for q in queries]
-    # embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
-    embeddings = call_sentence_encoder(queries)
-    return await query_all_embeddings(r, embeddings, top_k=top_k)
+    embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
+    # embeddings = call_sentence_encoder(queries)
+    return await query_embeddings_by_similarity(r, embeddings, top_k=top_k)
 
 
 async def query_all_texts_from_distance(
-    r, queries: List[dict], top_k: int = 5, radius: int = 600
-):
+    r: Redis, queries: List[dict], top_k: int = 5, radius: int = 600
+) -> List[List[Dict]]:
     top_k += 1
-    tasks = []
-    for query in queries:
-        name = f"{LOCATION_KEY_NAME}:{query['ticket_id']}"
-        exist = r.exists(name)
-        if exist == 0:
-            tasks.append(add_geospatial_index(query))
+    await ensure_geospatial_indices(r, queries)
+    return await process_queries_distance_query(r, queries, top_k, radius)
+
+
+async def ensure_geospatial_indices(r: Redis, queries: List[dict]) -> None:
+    tasks = [
+        add_geospatial_index(r, query)
+        for query in queries
+        if not r.exists(f"{LOCATION_KEY_NAME}:{query['ticket_id']}")
+    ]
     await asyncio.gather(*tasks)
 
-    final_list = []
-    for query in queries:
-        name = preprocess_coords_dict(query)["name"]
-        results = await r.georadiusbymember(
-            LOCATION_KEY_NAME,
-            name,
-            radius,
-            unit="m",
-            withdist=True,
-            withcoord=True,
-            count=top_k,
+
+async def process_queries_distance_query(
+    r: Redis, queries: List[dict], top_k: int, radius: int
+) -> List[List[Dict]]:
+    return await asyncio.gather(
+        *[process_single_distance_query(r, q, top_k, radius) for q in queries]
+    )
+
+
+async def process_single_distance_query(
+    r: Redis, q: dict, top_k: int, radius: int
+) -> List[Dict]:
+    name = preprocess_coords_dict(q)["name"]
+    results = await r.georadiusbymember(
+        LOCATION_KEY_NAME,
+        name,
+        radius,
+        unit="m",
+        withdist=True,
+        withcoord=True,
+        count=top_k,
+    )
+    return await process_results_distance_output(r, results, q["ticket_id"])
+
+
+async def process_results_distance_output(
+    r: Redis, results: List, query_ticket_id: str
+) -> List[Dict]:
+    processed_results = []
+    for result in results:
+        member_name, distance, (latitude, longitude) = result
+        ticket_id = member_name.decode("utf-8").split(":")[-1]
+
+        if ticket_id == query_ticket_id:
+            continue
+
+        data = await fetch_result_data_distance_query(r, ticket_id)
+        processed_results.append(
+            {
+                "distance": distance,
+                "latitude": latitude,
+                "longitude": longitude,
+                "data": data.get("raw_data", {}) if data else {},
+            }
         )
-        
-        results_list = []
-        for i, result in enumerate(results):
-            member_name = result[0].decode("utf-8")
-            ticket_id = member_name.split(":")[-1]
-            if ticket_id == query["ticket_id"]:
-                continue
-            distance = result[1]
-            latitude, longitude = result[2]
-            data_key = f"{TEXT_KEY_NAME}:{ticket_id}"
-            data = await r.json().get(data_key, "$")
-            try:
-                results_list.append(
-                    {
-                        "distance": distance,
-                        "latitude": latitude,
-                        "longitude": longitude,
-                        "data": data[0]["raw_data"],
-                    }
-                )
-            except:
-                results_list.append(
-                    {
-                        "distance": distance,
-                        "latitude": latitude,
-                        "longitude": longitude,
-                        "data": {},
-                    }
-                )
-        final_list.append(results_list)
-        
-    return final_list
+    return processed_results
+
+
+async def fetch_result_data_distance_query(r: Redis, ticket_id: str) -> Dict:
+    data_key = f"{TEXT_KEY_NAME}:{ticket_id}"
+    try:
+        return (await r.json().get(data_key, "$"))[0]
+    except Exception:
+        return None
