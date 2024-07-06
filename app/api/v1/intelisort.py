@@ -208,6 +208,15 @@ async def curse_check(text: List[str]):
     return kumyarb.KumYarbResponseModel(success=True, content=result)
 
 
+@router.delete("/drop_database", tags=["Functionality"])
+async def drop_database():
+    okay: bool = await clear_database(redis)
+    if okay:
+        return {"success": True, "content": "Database cleared"}
+    else:
+        return {"success": False, "content": "Failed to clear database"}
+
+
 # -- Function --
 async def load_csv_to_redis(redis):
     df = pd.read_csv("app/api/v1/static/kumyarb.csv")

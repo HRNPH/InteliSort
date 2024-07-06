@@ -129,9 +129,14 @@ async def batch_add_data(data: list[dict], r):
 
 
 # Database helper
-async def clear_database(r):
+async def clear_database(r: Redis):
     """Clear the Redis database."""
-    await r.flushall()
+    try:
+        await r.flushall()
+        return True
+    except Exception as e:
+        print(e)
+        return False
 
 
 async def drop_index(r):
@@ -272,6 +277,7 @@ async def query_all_texts_from_distance(
     queries = [preprocess_raw_data(q) for q in queries]
     await ensure_geospatial_indices(r, queries)
     return await process_queries_distance_query(r, queries, top_k, radius)
+        
 
 
 async def ensure_geospatial_indices(r: Redis, queries: List[dict]) -> None:
@@ -281,6 +287,7 @@ async def ensure_geospatial_indices(r: Redis, queries: List[dict]) -> None:
         if not r.exists(f"{LOCATION_KEY_NAME}:{query['ticket_id']}")
     ]
     await asyncio.gather(*tasks)
+    
 
 
 async def process_queries_distance_query(
@@ -295,7 +302,7 @@ async def process_single_distance_query(
     r: Redis, q: dict, top_k: int, radius: int
 ) -> List[Dict]:
     name = preprocess_coords_dict(q)["name"]
-    results = await r.georadiusbymember(
+    results = r.georadiusbymember(
         LOCATION_KEY_NAME,
         name,
         radius,
