@@ -38,7 +38,7 @@ PORT=8000 ./run.sh
 docker buildx build -t path/to/image:tag . --platform linux/amd64 # For multi-architecture builds, make sure to have buildx enabled
 ```
 
-## Serivce
+## Services
 
 ### similarity and distance query
 
