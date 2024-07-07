@@ -65,7 +65,11 @@ def preprocess_coords_dict(data: dict) -> dict:
     coords = data["coords"]
     longitude = float(coords.split(",")[0])
     latitude = float(coords.split(",")[1])
-    location_memeber_key = f"{LOCATION_KEY_NAME}:{data['ticket_id']}"
+    # check data have ticket_id
+    if "ticket_id" not in data:
+        data["ticket_id"] = "0"
+    else:
+        location_memeber_key = f"{LOCATION_KEY_NAME}:{data['ticket_id']}"
     member_data = {
         "longitude": longitude,
         "latitude": latitude,
@@ -88,12 +92,12 @@ def preprocess_raw_data(data: dict) -> dict:
     return data
 
 
-async def add_geospatial_index(data, pipeline):
+async def add_geospatial_index(pipeline, data: dict):
     preprocess_coords = preprocess_coords_dict(data)
 
-    longitude = preprocess_coords["longitude"]
-    latitude = preprocess_coords["latitude"]
-    member_name = preprocess_coords["name"]
+    longitude: float = preprocess_coords["longitude"]
+    latitude: float = preprocess_coords["latitude"]
+    member_name: str = preprocess_coords["name"]
 
     await pipeline.geoadd(LOCATION_KEY_NAME, [longitude, latitude, member_name])
 
@@ -107,7 +111,7 @@ async def preprocess_and_store_data(data, r):
     preprocess_prompt = {"raw_data": data, "preprocess_prompt": preprocess_prompt}
     await pipeline.json().set(data_key, "$", preprocess_prompt)
 
-    await add_geospatial_index(data, pipeline)
+    await add_geospatial_index(pipeline, data)
 
     await pipeline.execute()
 
@@ -265,8 +269,8 @@ def process_result_similarity_query(result) -> Dict:
 async def query_all_texts_from_similarity(r: Redis, queries: List[dict], top_k=5):
     queries = [preprocess_raw_data(q) for q in queries]
     queries = [preprocess_prompt_dict(q) for q in queries]
-    # embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
-    embeddings = call_sentence_encoder(queries)
+    embeddings = np.random.rand(len(queries), VECTOR_DIMENSION).tolist()
+    # embeddings = call_sentence_encoder(queries)
     return await query_embeddings_by_similarity(r, embeddings, top_k=top_k)
 
 
@@ -274,20 +278,13 @@ async def query_all_texts_from_distance(
     r: Redis, queries: List[dict], top_k: int = 5, radius: int = 600
 ) -> List[List[Dict]]:
     top_k += 1
-    queries = [preprocess_raw_data(q) for q in queries]
-    await ensure_geospatial_indices(r, queries)
-    return await process_queries_distance_query(r, queries, top_k, radius)
-        
-
-
-async def ensure_geospatial_indices(r: Redis, queries: List[dict]) -> None:
-    tasks = [
-        add_geospatial_index(r, query)
-        for query in queries
-        if not r.exists(f"{LOCATION_KEY_NAME}:{query['ticket_id']}")
-    ]
-    await asyncio.gather(*tasks)
-    
+    try:
+        queries = [preprocess_raw_data(q) for q in queries]
+        results = await process_queries_distance_query(r, queries, top_k, radius)
+        return results
+    except Exception as e:
+        print(e)
+        return []
 
 
 async def process_queries_distance_query(
@@ -301,29 +298,31 @@ async def process_queries_distance_query(
 async def process_single_distance_query(
     r: Redis, q: dict, top_k: int, radius: int
 ) -> List[Dict]:
-    name = preprocess_coords_dict(q)["name"]
-    results = r.georadiusbymember(
+    q = preprocess_coords_dict(q)
+    try:
+        query_coords = {"longitude": q["longitude"], "latitude": q["latitude"]}
+    except KeyError:
+        print(f"Could not extract coordinates from query: {q}")
+        return []
+    results = await r.georadius(
         LOCATION_KEY_NAME,
-        name,
+        query_coords["longitude"],
+        query_coords["latitude"],
         radius,
         unit="m",
         withdist=True,
         withcoord=True,
         count=top_k,
     )
-    return await process_results_distance_output(r, results, q["ticket_id"])
+    return await process_results_distance_output(r, results)
 
 
-async def process_results_distance_output(
-    r: Redis, results: List, query_ticket_id: str
-) -> List[Dict]:
+async def process_results_distance_output(r: Redis, results: List[tuple]) -> List[Dict]:
     processed_results = []
+    print("results 2", results)
     for result in results:
         member_name, distance, (latitude, longitude) = result
         ticket_id = member_name.decode("utf-8").split(":")[-1]
-
-        if ticket_id == query_ticket_id:
-            continue
 
         data = await fetch_result_data_distance_query(r, ticket_id)
         processed_results.append(
@@ -334,6 +333,7 @@ async def process_results_distance_output(
                 "data": data.get("raw_data", {}) if data else {},
             }
         )
+    print("processed_results", processed_results)
     return processed_results
 
 

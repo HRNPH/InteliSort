@@ -63,4 +63,4 @@ class QueryDistanceModel(BaseModel):
 
 class QueryDistanceResponseModel(BaseResponseModel):
     success: bool
-    content: List[Union[List[QueryDistanceModel], Any]]
+    content: Union[List[Union[List[QueryDistanceModel], Any]], str]

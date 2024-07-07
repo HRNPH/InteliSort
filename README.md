@@ -135,8 +135,8 @@ query data from distance [swagger](http://localhost:8000/docs#/2.%20query%20data
         ```json
         {
             "queries": [
-                { "coords": "100.54896,13.74037", "ticket_id": "2024-3JXJ9AD" },
-                { "coords": "100.54896,13.74037", "ticket_id": "2024-3JXJ9AD" }
+                {"coords": "100.54896,13.74037"},
+                {"coords": "100.54896,13.74037"}
             ],
             "top_k": 5,
             "radius": 600
